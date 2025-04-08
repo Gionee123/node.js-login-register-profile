@@ -26,7 +26,40 @@ const registerSchema = new mongoose.Schema({
     status: {
         type: Boolean,
         default: true
+    }, otp: {
+        type: String,
+        select: false
     },
+    otpExpires: {
+        type: Date,
+        select: false
+    },
+    isVerified: {
+        type: Boolean,
+        default: false // डिफॉल्ट रूप से वेरिफाइड नहीं होता
+    },
+    loginAttempts: {
+        type: Number,
+        default: 0,
+        select: false
+    },
+    lockUntil: {
+        type: Date,
+        select: false
+    },
+    userId: {
+        type: String,
+        unique: true
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    }
+
 });
 const registerModel = mongoose.model("register", registerSchema);
 module.exports = registerModel;

@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-
+require('dotenv').config();
 const server = express();
 server.use(cors());
 
@@ -21,11 +21,12 @@ server.get('*', (request, response) => {
 })
 
 
-mongoose.connect('mongodb+srv://yogeshsainijpr123:naveen12324@cluster0.yqvah.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0').then(
-    () => {
-        server.listen('5000', () => {
-            console.log('Database Connected!');
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => {
+        server.listen(process.env.PORT || 5000, () => {
+            console.log('✅ Database Connected!');
         });
-    }).catch((error) => {
-        console.log('Database Not Connected!' + error);
+    })
+    .catch((error) => {
+        console.error('❌ Database Not Connected!\n', error);
     });
