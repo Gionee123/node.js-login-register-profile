@@ -1,10 +1,11 @@
 const userModel = require('../../models/register.schema');
-const bcrypt = require('bcrypt') //पासवर्ड को हैश करने के लिए।
+const bcrypt = require('bcryptjs') //पासवर्ड को हैश करने के लिए।
 var jwt = require('jsonwebtoken') //लॉगिन के बाद यूज़र को ऑथेंटिकेट करने के लिए।
 var secretKey = "Gionee123" // JWT को सुरक्षित बनाने के लिए।
-const otpGenerator = require('otp-generator');
 const nodemailer = require('nodemailer');
-// Email transporter configuration
+const OTPDATA = new Map();
+
+
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -13,185 +14,147 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// Generate and send OTP
-const sendOTP = async (email) => {
-    // Generate 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+exports.sendotp = async (request, response) => {
+    const { email } = request.body;
 
-    // Send OTP via email
-    const mailOptions = {
-        from: '"OTP Verification" <yogeshsainijpr123@gmail.com>',
-        to: email,
-        subject: 'Your OTP for Registration',
-        html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #2563eb;">Account Verification</h2>
-                <p>Your one-time password (OTP) for account verification is:</p>
-                <div style="font-size: 24px; font-weight: bold; margin: 20px 0; padding: 15px; 
-                     background: #f3f4f6; border-radius: 8px; text-align: center;">
-                    ${otp}
-                </div>
-                <p style="color: #6b7280;">This OTP will expire in 10 minutes.</p>
-                <p>If you didn't request this, please ignore this email.</p>
-            </div>
-        `
-    };
+    if (!email) {
+        return response.status(400).json({ status: 1, msg: "Email is required" });
+    }
 
-    await transporter.sendMail(mailOptions);
+    try {
+        let otp = (Math.random() * 99999).toString().slice(0, 4)
 
-    return otp;
-};
+        OTPDATA.set(email, otp);  // ✅ store OTP for that specific email
+
+        await transporter.sendMail({
+            from: 'yogeshsainijpr123@gmail.com',
+            to: email,
+            subject: 'Your OTP Code',
+            text: `Your OTP is: ${otp}`,
+            html: `<p>Your OTP is: <b>${otp}</b></p>`
+        });
+
+        response.status(200).json({ status: 0, msg: "OTP sent successfully" });
+
+    } catch (error) {
+        console.error("Error sending OTP:", error);
+        response.status(500).json({ status: 1, msg: "Failed to send OTP", error: error.message });
+    }
+
+
+}
 
 exports.register = async (request, response) => {
-    try {
-        const { name, email, mobile_number, password } = request.body;
+    const { name, email, mobile_number, password, otp } = request.body;
+    // Check if OTP matches
+    const myotp = OTPDATA.get(email);
 
-        // Check if user already exists
-        const existingUser = await userModel.findOne({ email });
+    if (myotp === otp) {
+
+
+        const existingUser = await userModel.findOne({ email: request.body.email }); //सबसे पहले चेक करता है कि यूज़र पहले से रजिस्टर है या नहीं।
+
         if (existingUser) {
             return response.status(400).json({
                 status: false,
-                message: "Email ID already registered!"
+                message: "Email ID already registered!" //अगर ईमेल पहले से मौजूद है, तो "Email ID already registered!" मैसेज भेजता है।
+
             });
         }
 
-        // Generate OTP
+        // नया यूज़र बनाएं
+        var data = new userModel({
+            name: request.body.name,
+            email: request.body.email,
+            mobile_number: request.body.mobile_number,
+            password: bcrypt.hashSync(request.body.password, 10),
+            isVerified: true // <-- यह जोड़ो!
 
-        const otp = await sendOTP(email);
-        const otpExpires = Math.floor(Math.random() * 900000) + 100000;
+        })
+        // यूज़र को डेटाबेस में सेव करें
 
-        // Create new user with OTP (not verified yet)
-        const newUser = new userModel({
-            name,
-            email,
-            mobile_number,
-            password: bcrypt.hashSync(password, 10),
-            otp,
-            otpExpires,
-            isVerified: false
-        });
+        await data.save().then((result) => {
+            // JWT टोकन जेनरेट करें
 
-        await newUser.save();
+            var token = jwt.sign({
+                userData: result
+            },
+                secretKey,
+                { expiresIn: '1h' });
 
-        response.status(200).json({
-            status: true,
-            message: "OTP sent to your email. Please verify to complete registration.",
-            userId: newUser._id
-        });
+            OTPDATA.delete(email);
 
-    } catch (error) {
-        response.status(500).json({
+            response.status(201).json({
+                status: true,
+                message: "User registered successfully!",
+                token: token
+            });
+        }).catch((error) => {
+            response.status(500).json({
+                status: false,
+                message: "Registration failed!",
+                error: error.message
+            });
+        })
+    }
+    else {
+        return response.status(400).json({
             status: false,
-            message: "Registration failed!",
-            error: error.message
+            msg: "Invalid OTP"
         });
     }
-};
 
-// OTP Verification
-exports.verifyOTP = async (request, response) => {
-    try {
-        // Should only need these params
-        const { userId, otp } = request.body;
-
-        if (!userId || !otp) {
-            return response.status(400).json({
-                status: false,
-                message: "User ID and OTP are required"
-            });
-        }
-
-        // Rest of your verification logic...
-    } catch (error) {
-        response.status(500).json({
-            status: false,
-            message: "OTP verification failed!",
-            error: error.message
-        });
-    }
-};
-
-// Resend OTP
-exports.resendOTP = async (request, response) => {
-    try {
-        const { userId } = request.body;
-
-        const user = await userModel.findById(userId);
-        if (!user) {
-            return response.status(404).json({
-                status: false,
-                message: "User not found!"
-            });
-        }
-
-        // Generate new OTP
-        const otp = await sendOTP(user.email);
-        user.otp = otp;
-        user.otpExpires = Date.now() + 600000; // 10 minutes
-        await user.save();
-
-        response.status(200).json({
-            status: true,
-            message: "New OTP sent to your email.",
-            userId: user._id
-        });
-
-    } catch (error) {
-        response.status(500).json({
-            status: false,
-            message: "Failed to resend OTP!",
-            error: error.message
-        });
-    }
-};
-
-// Modified login to check verification status
-exports.login = async (request, response) => {
-    try {
-        const { email, password } = request.body;
-
-        const user = await userModel.findOne({ email });
-        if (!user) {
-            return response.status(404).json({
-                status: false,
-                message: "User not found"
-            });
-        }
-
-        // Check if user is verified
-        if (!user.isVerified) {
-            return response.status(403).json({
-                status: false,
-                message: "Please verify your account first. Check your email for OTP."
-            });
-        }
-
-        const isPasswordValid = bcrypt.compareSync(password, user.password);
-        if (!isPasswordValid) {
-            return response.status(401).json({
-                status: false,
-                message: "Incorrect password"
-            });
-        }
-
-        const token = jwt.sign({
-            userData: user
-        }, secretKey, { expiresIn: '1h' });
-
-        response.status(200).json({
-            status: true,
-            message: "Login successful",
-            token: token
-        });
-
-    } catch (error) {
-        response.status(500).json({
-            status: false,
-            message: "Login failed",
-            error: error.message
-        });
-    }
 }
+
+exports.login = async (request, response) => {
+    await userModel.findOne({ email: request.body.email })
+
+        .then((result) => {
+
+            if (result) {
+
+                var comparePassword = bcrypt.compareSync(request.body.password, result.password);
+                if (comparePassword) {
+                    var token = jwt.sign({
+                        userData: result
+                    },
+                        secretKey,
+                        { expiresIn: '1h' });
+
+
+                    var resp = {
+                        status: true,
+                        message: "login successfully",
+                        token: token,
+                    }
+                }
+                else {
+                    var resp = {
+                        status: false,
+                        message: "incorrect password",
+                    }
+                }
+
+            }
+            else {
+                var resp = {
+                    status: false,
+                    message: "no user found",
+                    result: result
+                }
+            }
+            response.send(resp)
+        })
+
+        .catch((error) => {
+            response.status(500).json({
+                status: false,
+                message: "Something went wrong!",
+                error: error.message
+            });
+        });
+
+};
 
 exports.profile = async (request, response) => {
     try {
@@ -238,3 +201,106 @@ exports.profile = async (request, response) => {
     }
 };
 
+
+
+// फॉरगॉट पासवर्ड का रिक्वेस्ट हैंडल करने वाला फंक्शन
+exports.forgotPassword = async (request, response) => {
+    try {
+        const { email } = request.body;
+
+        // 1. डेटाबेस में यूजर को ईमेल के आधार पर खोजें
+        const user = await userModel.findOne({ email });
+
+        // अगर यूजर नहीं मिला तो
+        if (!user) {
+            // सफल रेस्पॉन्स भेजें (सुरक्षा के लिए असली स्थिति नहीं बताते)
+            return response.status(200).json({
+                status: true,
+                message: "If your email is registered, you will receive a password reset link"
+            });
+        }
+
+        // 2. रैंडम पासवर्ड रीसेट टोकन जनरेट करें
+        const resetToken = user();
+
+        // वैलिडेशन के बिना यूजर को सेव करें (क्योंकि पासवर्ड फील्ड अपडेट नहीं हो रहा)
+        await user.save({ validateBeforeSave: false });
+
+        // 3. यूजर को ईमेल भेजें
+        // फ्रंटएंड के रीसेट पासवर्ड पेज का URL बनाएं
+        const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+        // ईमेल का कॉन्फिगरेशन सेट करें
+        const mailOptions = {
+            from: process.env.EMAIL_USERNAME,  // भेजने वाला का ईमेल
+            to: user.email,                   // प्राप्तकर्ता का ईमेल
+            subject: 'Your password reset token (valid for 10 minutes)',  // ईमेल का विषय
+            text: `Forgot your password? Click the link below to reset your password:\n\n${resetURL}\n\nIf you didn't forget your password, please ignore this email!`  // ईमेल का संदेश
+        };
+
+        // नोडमेलर का उपयोग करके ईमेल भेजें
+        await transporter.sendMail(mailOptions);
+
+        // सफलता की रेस्पॉन्स भेजें
+        response.status(200).json({
+            status: true,
+            message: "Password reset link sent to your email"
+        });
+
+        // अगर कोई एरर आए तो
+    } catch (error) {
+        // 500 स्टेटस कोड के साथ एरर रेस्पॉन्स भेजें
+        response.status(500).json({
+            status: false,
+            message: "Error sending email",
+            error: error.message  // डेवलपमेंट के लिए एरर डिटेल
+        });
+    }
+}
+// exports.resetPassword = async (request, response) => {
+
+//     try {
+//         const { token, newPassword } = request.body;
+
+//         // 1. Get user based on the token
+//         const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+//         const user = await userModel.findOne({
+//             passwordResetToken: hashedToken,
+//             passwordResetExpires: { $gt: Date.now() }
+//         });
+
+//         // 2. If token has not expired, and there is user, set the new password
+//         if (!user) {
+//             return response.status(400).json({
+//                 status: false,
+//                 message: "Token is invalid or has expired"
+//             });
+//         }
+
+//         // 3. Update password and clear reset token
+//         user.password = newPassword;
+//         user.passwordResetToken = undefined;
+//         user.passwordResetExpires = undefined;
+//         await user.save();
+
+//         // 4. Log the user in, send JWT
+//         const authToken = jwt.sign(
+//             { id: user._id },
+//             secretKey,
+//             { expiresIn: '1h' }
+//         );
+
+//         response.status(200).json({
+//             status: true,
+//             message: "Password reset successful",
+//             token: authToken
+//         });
+//     } catch (error) {
+//         response.status(500).json({
+//             status: false,
+//             message: "Password reset failed",
+//             error: error.message
+//         });
+//     }
+// }
