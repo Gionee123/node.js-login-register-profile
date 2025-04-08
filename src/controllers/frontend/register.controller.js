@@ -204,59 +204,59 @@ exports.profile = async (request, response) => {
 
 
 // फॉरगॉट पासवर्ड का रिक्वेस्ट हैंडल करने वाला फंक्शन
-exports.forgotPassword = async (request, response) => {
-    try {
-        const { email } = request.body;
+// exports.forgotPassword = async (request, response) => {
+//     try {
+//         const { email } = request.body;
 
-        // 1. डेटाबेस में यूजर को ईमेल के आधार पर खोजें
-        const user = await userModel.findOne({ email });
+//         // 1. डेटाबेस में यूजर को ईमेल के आधार पर खोजें
+//         const user = await userModel.findOne({ email });
 
-        // अगर यूजर नहीं मिला तो
-        if (!user) {
-            // सफल रेस्पॉन्स भेजें (सुरक्षा के लिए असली स्थिति नहीं बताते)
-            return response.status(200).json({
-                status: true,
-                message: "If your email is registered, you will receive a password reset link"
-            });
-        }
+//         // अगर यूजर नहीं मिला तो
+//         if (!user) {
+//             // सफल रेस्पॉन्स भेजें (सुरक्षा के लिए असली स्थिति नहीं बताते)
+//             return response.status(200).json({
+//                 status: true,
+//                 message: "If your email is registered, you will receive a password reset link"
+//             });
+//         }
 
-        // 2. रैंडम पासवर्ड रीसेट टोकन जनरेट करें
-        const resetToken = user();
+//         // 2. रैंडम पासवर्ड रीसेट टोकन जनरेट करें
+//         const resetToken = user();
 
-        // वैलिडेशन के बिना यूजर को सेव करें (क्योंकि पासवर्ड फील्ड अपडेट नहीं हो रहा)
-        await user.save({ validateBeforeSave: false });
+//         // वैलिडेशन के बिना यूजर को सेव करें (क्योंकि पासवर्ड फील्ड अपडेट नहीं हो रहा)
+//         await user.save({ validateBeforeSave: false });
 
-        // 3. यूजर को ईमेल भेजें
-        // फ्रंटएंड के रीसेट पासवर्ड पेज का URL बनाएं
-        const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+//         // 3. यूजर को ईमेल भेजें
+//         // फ्रंटएंड के रीसेट पासवर्ड पेज का URL बनाएं
+//         const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-        // ईमेल का कॉन्फिगरेशन सेट करें
-        const mailOptions = {
-            from: process.env.EMAIL_USERNAME,  // भेजने वाला का ईमेल
-            to: user.email,                   // प्राप्तकर्ता का ईमेल
-            subject: 'Your password reset token (valid for 10 minutes)',  // ईमेल का विषय
-            text: `Forgot your password? Click the link below to reset your password:\n\n${resetURL}\n\nIf you didn't forget your password, please ignore this email!`  // ईमेल का संदेश
-        };
+//         // ईमेल का कॉन्फिगरेशन सेट करें
+//         const mailOptions = {
+//             from: process.env.EMAIL_USERNAME,  // भेजने वाला का ईमेल
+//             to: user.email,                   // प्राप्तकर्ता का ईमेल
+//             subject: 'Your password reset token (valid for 10 minutes)',  // ईमेल का विषय
+//             text: `Forgot your password? Click the link below to reset your password:\n\n${resetURL}\n\nIf you didn't forget your password, please ignore this email!`  // ईमेल का संदेश
+//         };
 
-        // नोडमेलर का उपयोग करके ईमेल भेजें
-        await transporter.sendMail(mailOptions);
+//         // नोडमेलर का उपयोग करके ईमेल भेजें
+//         await transporter.sendMail(mailOptions);
 
-        // सफलता की रेस्पॉन्स भेजें
-        response.status(200).json({
-            status: true,
-            message: "Password reset link sent to your email"
-        });
+//         // सफलता की रेस्पॉन्स भेजें
+//         response.status(200).json({
+//             status: true,
+//             message: "Password reset link sent to your email"
+//         });
 
-        // अगर कोई एरर आए तो
-    } catch (error) {
-        // 500 स्टेटस कोड के साथ एरर रेस्पॉन्स भेजें
-        response.status(500).json({
-            status: false,
-            message: "Error sending email",
-            error: error.message  // डेवलपमेंट के लिए एरर डिटेल
-        });
-    }
-}
+//         // अगर कोई एरर आए तो
+//     } catch (error) {
+//         // 500 स्टेटस कोड के साथ एरर रेस्पॉन्स भेजें
+//         response.status(500).json({
+//             status: false,
+//             message: "Error sending email",
+//             error: error.message  // डेवलपमेंट के लिए एरर डिटेल
+//         });
+//     }
+// }
 // exports.resetPassword = async (request, response) => {
 
 //     try {

@@ -7,8 +7,8 @@ module.exports = app => {
     route.post('/register', usercontroller.register);
     route.post('/login', usercontroller.login);
     route.post('/profile', usercontroller.profile);
-    route.post('/verifyOTP', usercontroller.profile);
-    route.post('/resendOTP', usercontroller.profile);
+    // route.post('/verifyOTP', usercontroller.profile);
+    // route.post('/resendOTP', usercontroller.profile);
 
     app.use('/api/frontend/users', route)
 }
