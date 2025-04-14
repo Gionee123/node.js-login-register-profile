@@ -12,8 +12,7 @@ server.get('/', (request, response) => {
     response.send('Server Working Fine.....');
 })
 
-require('./src/routes/backend/images.routes')(server);
-require('./src/routes/backend/two.images.routes')(server);
+
 require('./src/routes/frontend/register.routes')(server);
 
 server.get('*', (request, response) => {

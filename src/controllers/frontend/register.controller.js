@@ -7,10 +7,15 @@ const OTPDATA = new Map();
 
 
 const transporter = nodemailer.createTransport({
+
     service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: true,
     auth: {
         user: 'yogeshsainijpr123@gmail.com', // Replace with your Gmail
-        pass: 'ilcc tlzk emmo ksfg'  // Use App Password (not your Gmail password)
+        pass: 'oxldvbwubtzozlxq'
+        // pass: 'oxld vbwu btzo zlxq'
     }
 });
 
@@ -24,14 +29,30 @@ exports.sendotp = async (request, response) => {
     try {
         let otp = (Math.random() * 99999).toString().slice(0, 4)
 
+
+
         OTPDATA.set(email, otp);  // ✅ store OTP for that specific email
 
         await transporter.sendMail({
             from: 'yogeshsainijpr123@gmail.com',
-            to: email,
-            subject: 'Your OTP Code',
-            text: `Your OTP is: ${otp}`,
-            html: `<p>Your OTP is: <b>${otp}</b></p>`
+            to: request.body.email,
+            subject: 'Your OTP Verification Code',  // More descriptive subject
+            text: `Your verification code is: ${otp}\n\nThis code expires in 10 minutes.`,
+            html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #2563eb; text-align: center;">Verification Code</h2>
+        <p style="font-size: 16px;">Please use the following code to verify your account:</p>
+        
+        <div style="background: #f8fafc; padding: 15px; text-align: center; margin: 20px 0; 
+                    border-radius: 6px; font-size: 24px; font-weight: bold; letter-spacing: 2px;
+                    border: 1px dashed #cbd5e1;">
+            ${otp}
+        </div>
+        
+        <p style="color: #64748b; font-size: 14px;">This code will expire in 10 minutes.</p>
+        <p style="color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 20px;">
+            If you didn't request this code, please ignore this email.
+        </p>
+    </div>`
         });
 
         response.status(200).json({ status: 0, msg: "OTP sent successfully" });
@@ -45,11 +66,12 @@ exports.sendotp = async (request, response) => {
 }
 
 exports.register = async (request, response) => {
-    const { name, email, mobile_number, password, otp } = request.body;
+    const { name, email, mobileNumber, password, otp } = request.body;
     // Check if OTP matches
     const myotp = OTPDATA.get(email);
+    console.log(myotp, otp, email)
 
-    if (myotp === otp) {
+    if (myotp == otp) {
 
 
         const existingUser = await userModel.findOne({ email: request.body.email }); //सबसे पहले चेक करता है कि यूज़र पहले से रजिस्टर है या नहीं।
@@ -66,8 +88,10 @@ exports.register = async (request, response) => {
         var data = new userModel({
             name: request.body.name,
             email: request.body.email,
-            mobile_number: request.body.mobile_number,
+            mobileNumber: request.body.mobileNumber,
+            // otp: request.body.otp,
             password: bcrypt.hashSync(request.body.password, 10),
+            // password: request.body.password,
             isVerified: true // <-- यह जोड़ो!
 
         })

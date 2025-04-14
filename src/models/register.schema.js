@@ -5,15 +5,13 @@ const registerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-
-
     email: {
         type: String,
         required: true,
         unique: true,
         match: [/^\S+@\S+\.\S+$/, "Please enter a valid email"]
     },
-    mobile_number: {
+    mobileNumber: {
         type: String,
         required: [true, "mobile number is required"],
         match: [/^\d{10}$/, "Please enter a valid 10-digit mobile number"]
