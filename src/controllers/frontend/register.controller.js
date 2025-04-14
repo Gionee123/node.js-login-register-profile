@@ -1,7 +1,8 @@
+require('dotenv').config();
 const userModel = require('../../models/register.schema');
 const bcrypt = require('bcryptjs') //पासवर्ड को हैश करने के लिए।
 var jwt = require('jsonwebtoken') //लॉगिन के बाद यूज़र को ऑथेंटिकेट करने के लिए।
-var secretKey = "Gionee123" // JWT को सुरक्षित बनाने के लिए।
+var secretKey = process.env.JWT_SECRET; // JWT को सुरक्षित बनाने के लिए।
 const nodemailer = require('nodemailer');
 const OTPDATA = new Map();
 
@@ -13,8 +14,8 @@ const transporter = nodemailer.createTransport({
     port: 587,
     secure: true,
     auth: {
-        user: 'yogeshsainijpr123@gmail.com', // Replace with your Gmail
-        pass: 'oxldvbwubtzozlxq'
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
         // pass: 'oxld vbwu btzo zlxq'
     }
 });
